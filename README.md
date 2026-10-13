@@ -56,43 +56,6 @@ This project:
 
 ---
 
-## 🏗️ Project Architecture
-┌──────────────────────────────────────────────────────────┐
-│ Synthetic Data Generation │
-│ src/data_loader.py + src/calibrate.py │
-│ → 1.75M hourly rows, calibrated to ESCOM targets │
-└──────────────────┬───────────────────────────────────────┘
-│
-▼
-┌──────────────────────────────────────────────────────────┐
-│ Exploratory Data Analysis │
-│ notebooks/02_eda.ipynb │
-│ → 200 household behavioral signatures (5 features) │
-└──────────────────┬───────────────────────────────────────┘
-│
-▼
-┌──────────────────────────────────────────────────────────┐
-│ Unsupervised Clustering │
-│ src/preprocess.py + src/clustering.py │
-│ notebooks/03_clustering.ipynb │
-│ → 4 household archetypes (K-Means, k=4) │
-└──────────────────┬───────────────────────────────────────┘
-│
-▼
-┌──────────────────────────────────────────────────────────┐
-│ Supervised Prediction │
-│ src/build_supervised_data.py + src/train_predictor.py │
-│ → RandomForest: next-hour kWh forecast │
-└──────────────────┬───────────────────────────────────────┘
-│
-▼
-┌──────────────────────────────────────────────────────────┐
-│ Web Application │
-│ src/api.py (FastAPI) + static/index.html (dashboard) │
-│ → Live predictions + interactive visualization │
-└──────────────────────────────────────────────────────────┘
-
-
 
 ---
 
