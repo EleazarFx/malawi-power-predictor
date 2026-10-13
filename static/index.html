@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Malawi Household Electricity Predictor</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  :root {
+    --bg: #0f172a;
+    --card: #1e293b;
+    --card-2: #334155;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --accent-2: #22c55e;
+    --danger: #f43f5e;
+    --warn: #facc15;
+    --border: #334155;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 32px 24px 64px;
+    line-height: 1.5;
+  }
+  .container { max-width: 1200px; margin: 0 auto; }
+
+  header {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+  header h1 {
+    font-size: 2.4rem;
+    font-weight: 700;
+    background: linear-gradient(90deg, #38bdf8, #22c55e);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  header p { color: var(--muted); margin-top: 8px; font-size: 1.05rem; }
+
+  .badge {
+    display: inline-block;
+    padding: 4px 12px;
+    background: rgba(56,189,248,0.15);
+    color: var(--accent);
+    border: 1px solid rgba(56,189,248,0.3);
+    border-radius: 999px;
+    font-size: 0.8rem;
+    margin-top: 12px;
+    font-weight: 500;
+  }
+
+  .grid {
+    display: grid;
+    gap: 20px;
+    margin-bottom: 28px;
+  }
+  .grid.cols-4 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .grid.cols-2 { grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 22px;
+    transition: transform 0.15s ease, border-color 0.15s ease;
+  }
+  .card:hover { border-color: var(--accent); }
+  .card h2 {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin-bottom: 14px;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card h2 .emoji { font-size: 1.2rem; }
+
+  .metric-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+  .metric-label { font-size: 0.85rem; color: var(--muted); }
+  .metric-delta { color: var(--accent-2); font-weight: 600; font-size: 0.85rem; margin-top: 6px; }
+
+  /* Cluster cards */
+  .cluster-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+    position: relative;
+    overflow: hidden;
+  }
+  .cluster-card::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+    background: var(--accent);
+  }
+  .cluster-card.c0::before { background: #38bdf8; }
+  .cluster-card.c1::before { background: #f43f5e; }
+  .cluster-card.c2::before { background: #a855f7; }
+  .cluster-card.c3::before { background: #22c55e; }
+  .cluster-name { font-size: 1.05rem; font-weight: 700; margin-bottom: 12px; }
+  .cluster-stat {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(148,163,184,0.1);
+  }
+  .cluster-stat:last-child { border-bottom: none; }
+  .cluster-stat span:first-child { color: var(--muted); }
+  .cluster-stat span:last-child { font-weight: 600; }
+
+  /* Predictor form */
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+  .form-field { display: flex; flex-direction: column; gap: 6px; }
+  .form-field label {
+    font-size: 0.8rem;
+    color: var(--muted);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .form-field input, .form-field select {
+    background: var(--card-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: var(--text);
+    font-size: 0.95rem;
+    font-family: inherit;
+    transition: border-color 0.15s ease;
+  }
+  .form-field input:focus, .form-field select:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  button {
+    background: linear-gradient(90deg, #38bdf8, #0ea5e9);
+    border: none;
+    color: #0f172a;
+    font-weight: 700;
+    padding: 12px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.95rem;
+    font-family: inherit;
+    transition: opacity 0.15s ease, transform 0.1s ease;
+    width: 100%;
+  }
+  button:hover { opacity: 0.9; }
+  button:active { transform: scale(0.98); }
+
+  .result {
+    margin-top: 18px;
+    padding: 18px;
+    background: var(--card-2);
+    border-radius: 8px;
+    border-left: 4px solid var(--accent-2);
+    display: none;
+  }
+  .result.show { display: block; animation: fadeIn 0.3s ease; }
+  .result-value { font-size: 2.2rem; font-weight: 700; color: var(--accent-2); }
+  .result-label { font-size: 0.85rem; color: var(--muted); }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+  /* Chart container */
+  .chart-container { position: relative; height: 220px; }
+
+  img.plot { width: 100%; border-radius: 8px; display: block; }
+
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin-top: 48px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+  }
+  footer a { color: var(--accent); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+
+  .loading {
+    display: inline-block;
+    width: 12px; height: 12px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 0.8s linear infinite;
+    vertical-align: middle;
+    margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1>Malawi Household Electricity Predictor</h1>
+    <p>Unsupervised clustering + supervised next-hour consumption forecasting</p>
+    <div class="badge">Live model • ESCOM-grounded synthetic data • 200 households</div>
+  </header>
+
+  <!-- Key Metrics -->
+  <div class="grid cols-4">
+    <div class="card">
+      <div class="metric-value">4</div>
+      <div class="metric-label">Household archetypes discovered</div>
+    </div>
+    <div class="card">
+      <div class="metric-value">200</div>
+      <div class="metric-label">Simulated households</div>
+    </div>
+    <div class="card">
+      <div class="metric-value">1.75M</div>
+      <div class="metric-label">Training rows (hourly)</div>
+    </div>
+    <div class="card">
+      <div class="metric-value">+11.4%</div>
+      <div class="metric-label">R² improvement from clusters</div>
+      <div class="metric-delta">+1.9% MAE reduction</div>
+    </div>
+  </div>
+
+  <!-- Cluster Cards -->
+  <div class="grid cols-4" id="cluster-cards">
+    <div class="card"><span class="loading"></span> Loading clusters…</div>
+  </div>
+
+  <!-- Charts -->
+  <div class="grid cols-2">
+    <div class="card">
+      <h2><span class="emoji">🧩</span> Household Clusters (PCA projection)</h2>
+      <div id="cluster-plot-wrap"><span class="loading"></span> Loading plot…</div>
+    </div>
+    <div class="card">
+      <h2><span class="emoji">📈</span> Model Comparison</h2>
+      <div id="predict-plot-wrap"><span class="loading"></span> Loading plot…</div>
+    </div>
+  </div>
+
+  <!-- Live Predictor -->
+  <div class="grid cols-2">
+    <div class="card">
+      <h2><span class="emoji">🔮</span> Live Predictor</h2>
+      <p style="color: var(--muted); font-size: 0.9rem; margin-bottom: 18px;">
+        Enter the household's recent state — the model predicts consumption for the next hour.
+      </p>
+      <form id="predict-form">
+        <div class="form-grid">
+          <div class="form-field">
+            <label>Hour (0–23)</label>
+            <input type="number" id="hour" min="0" max="23" value="19" required>
+          </div>
+          <div class="form-field">
+            <label>Day (0=Mon)</label>
+            <input type="number" id="dow" min="0" max="6" value="2" required>
+          </div>
+          <div class="form-field">
+            <label>Weekend?</label>
+            <select id="weekend">
+              <option value="0">No</option>
+              <option value="1">Yes</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Rainy season?</label>
+            <select id="rainy">
+              <option value="0">No (dry)</option>
+              <option value="1">Yes (Nov–Apr)</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Previous hour (kWh)</label>
+            <input type="number" id="lag1" step="0.01" min="0" value="0.5" required>
+          </div>
+          <div class="form-field">
+            <label>Same hour yesterday</label>
+            <input type="number" id="lag24" step="0.01" min="0" value="0.4" required>
+          </div>
+          <div class="form-field">
+            <label>24h rolling mean</label>
+            <input type="number" id="roll24" step="0.01" min="0" value="0.3" required>
+          </div>
+          <div class="form-field">
+            <label>Household type</label>
+            <select id="cluster">
+              <option value="0">Flat daytime (low-use)</option>
+              <option value="1">Spiky low-use</option>
+              <option value="2">Evening-peak rural</option>
+              <option value="3">High-use urban</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Urban?</label>
+            <select id="urban">
+              <option value="0">Rural</option>
+              <option value="1">Urban</option>
+            </select>
+          </div>
+        </div>
+        <button type="submit" id="predict-btn">Predict next-hour consumption</button>
+      </form>
+      <div class="result" id="result">
+        <div class="result-label">Predicted next-hour consumption</div>
+        <div class="result-value" id="result-value">— kWh</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2><span class="emoji">🧪</span> Quick Presets</h2>
+      <p style="color: var(--muted); font-size: 0.9rem; margin-bottom: 18px;">
+        Click a preset to load realistic values for each household archetype.
+      </p>
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <button class="preset-btn" data-preset="rural_evening" style="background: var(--card-2); color: var(--text); border: 1px solid var(--border); text-align: left; padding: 14px 18px;">
+          <strong>Evening-peak rural</strong> — 8 pm, low usage, rural home
+        </button>
+        <button class="preset-btn" data-preset="urban_cooking" style="background: var(--card-2); color: var(--text); border: 1px solid var(--border); text-align: left; padding: 14px 18px;">
+          <strong>High-use urban</strong> — 7 pm cooking peak, urban home
+        </button>
+        <button class="preset-btn" data-preset="spiky_morning" style="background: var(--card-2); color: var(--text); border: 1px solid var(--border); text-align: left; padding: 14px 18px;">
+          <strong>Spiky low-use</strong> — 6 am kettle spike
+        </button>
+        <button class="preset-btn" data-preset="flat_midday" style="background: var(--card-2); color: var(--text); border: 1px solid var(--border); text-align: left; padding: 14px 18px;">
+          <strong>Flat daytime</strong> — 1 pm steady load, home-based worker
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    Data grounded in the ESCOM Load Forecast Report 2024–2034 ·
+    Built with FastAPI + scikit-learn ·
+    <a href="/docs">API Docs</a>
+  </footer>
+</div>
+
+<script>
+const CLUSTER_STYLE = {
+  "flat_daytime":       { cls: "c0", emoji: "🏠", desc: "Low-use, steady all-day" },
+  "spiky_low":          { cls: "c1", emoji: "⚡", desc: "Mostly off with spikes" },
+  "evening_peak_rural": { cls: "c2", emoji: "🌙", desc: "Classic evening rural" },
+  "high_use_urban":     { cls: "c3", emoji: "🏙️", desc: "Urban cooking + cooling" },
+};
+
+async function loadClusters() {
+  const res = await fetch("/api/clusters");
+  const data = await res.json();
+  const wrap = document.getElementById("cluster-cards");
+  wrap.innerHTML = "";
+  for (const c of data) {
+    const style = CLUSTER_STYLE[c.cluster_name] || { cls: "c0", emoji: "❓", desc: "" };
+    const urbanPct = (c.urban_pct * 100).toFixed(0);
+    wrap.innerHTML += `
+      <div class="cluster-card ${style.cls}">
+        <div class="cluster-name">${style.emoji} ${c.cluster_name.replace(/_/g, " ")}</div>
+        <div class="cluster-stat"><span>Households</span><span>${c.n}</span></div>
+        <div class="cluster-stat"><span>Urban share</span><span>${urbanPct}%</span></div>
+        <div class="cluster-stat"><span>Mean daily</span><span>${c.mean_kwh.toFixed(2)} kWh</span></div>
+        <div class="cluster-stat"><span>Peak hour</span><span>${c.peak_kwh.toFixed(2)} kWh</span></div>
+        <div style="margin-top:10px;font-size:0.8rem;color:var(--muted);">${style.desc}</div>
+      </div>
+    `;
+  }
+}
+
+async function loadPlots() {
+  // Cluster PCA plot
+  const c1 = await fetch("/api/cluster_plot").then(r => r.json());
+  document.getElementById("cluster-plot-wrap").innerHTML =
+    `<img class="plot" src="data:image/png;base64,${c1.image}" alt="Cluster PCA plot">`;
+
+  // Model comparison plot
+  const c2 = await fetch("/api/predict_plot").then(r => r.json());
+  document.getElementById("predict-plot-wrap").innerHTML =
+    `<img class="plot" src="data:image/png;base64,${c2.image}" alt="Model comparison">`;
+}
+
+document.getElementById("predict-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById("predict-btn");
+  btn.innerHTML = '<span class="loading"></span> Predicting…';
+  btn.disabled = true;
+
+  const payload = {
+    hour: parseInt(document.getElementById("hour").value),
+    day_of_week: parseInt(document.getElementById("dow").value),
+    is_weekend: parseInt(document.getElementById("weekend").value),
+    is_rainy_season: parseInt(document.getElementById("rainy").value),
+    lag_1h: parseFloat(document.getElementById("lag1").value),
+    lag_24h: parseFloat(document.getElementById("lag24").value),
+    rolling_24h_mean: parseFloat(document.getElementById("roll24").value),
+    cluster: parseInt(document.getElementById("cluster").value),
+    area_is_urban: parseInt(document.getElementById("urban").value),
+  };
+
+  try {
+    const res = await fetch("/api/predict", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    document.getElementById("result-value").textContent = `${data.prediction_kwh.toFixed(4)} kWh`;
+    document.getElementById("result").classList.add("show");
+  } catch (err) {
+    alert("Prediction failed: " + err);
+  } finally {
+    btn.innerHTML = "Predict next-hour consumption";
+    btn.disabled = false;
+  }
+});
+
+// Presets
+const PRESETS = {
+  rural_evening:  { hour: 20, dow: 2, weekend: 0, rainy: 0, lag1: 0.15, lag24: 0.12, roll24: 0.10, cluster: 2, urban: 0 },
+  urban_cooking:  { hour: 19, dow: 3, weekend: 0, rainy: 0, lag1: 0.85, lag24: 0.75, roll24: 0.55, cluster: 3, urban: 1 },
+  spiky_morning:  { hour: 6,  dow: 1, weekend: 0, rainy: 1, lag1: 0.05, lag24: 0.20, roll24: 0.12, cluster: 1, urban: 0 },
+  flat_midday:    { hour: 13, dow: 4, weekend: 0, rainy: 0, lag1: 0.18, lag24: 0.17, roll24: 0.16, cluster: 0, urban: 0 },
+};
+
+document.querySelectorAll(".preset-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const p = PRESETS[btn.dataset.preset];
+    document.getElementById("hour").value   = p.hour;
+    document.getElementById("dow").value    = p.dow;
+    document.getElementById("weekend").value = p.weekend;
+    document.getElementById("rainy").value  = p.rainy;
+    document.getElementById("lag1").value   = p.lag1;
+    document.getElementById("lag24").value  = p.lag24;
+    document.getElementById("roll24").value = p.roll24;
+    document.getElementById("cluster").value = p.cluster;
+    document.getElementById("urban").value  = p.urban;
+    document.getElementById("predict-form").requestSubmit();
+  });
+});
+
+// Load on page ready
+loadClusters();
+loadPlots();
+</script>
+</body>
+</html>
