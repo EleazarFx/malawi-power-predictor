@@ -69,7 +69,7 @@ This project:
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/your-username/malawi-power-predictor.git
+git clone https://github.com/EleazarFx/malawi-power-predictor.git
 cd malawi-power-predictor
 
 # 2. Create a virtual environment
